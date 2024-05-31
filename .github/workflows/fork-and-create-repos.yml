@@ -43,18 +43,22 @@ jobs:
           done
 
       - name: Create 3 new repositories
+        id: created_repos
         run: |
           repos=(${{ steps.repo_list.outputs.repos }})
+          created_repos=()
           for repo in "${repos[@]:3:3}"; do
             repo_name=$(basename $repo)
-            curl -X POST -H "Authorization: token ${{ github.event.inputs.github_pat }}" -d "{\"name\": \"$repo_name\"}" "https://api.github.com/user/repos"
+            response=$(curl -X POST -H "Authorization: token ${{ github.event.inputs.github_pat }}" -d "{\"name\": \"$repo_name\"}" "https://api.github.com/user/repos")
+            created_repos+=($(echo $response | jq -r '.full_name'))
             echo "Created: $repo_name"
           done
+          echo "::set-output name=repos::$(IFS=,; echo "${created_repos[*]}")"
 
       - name: Generate GPG key
         id: gpg_key
         run: |
-          GPG_KEY_ID=$(gpg --batch --gen-key <<EOF
+          gpg --batch --gen-key <<EOF
           %no-protection
           Key-Type: default
           Key-Length: 2048
@@ -63,8 +67,6 @@ jobs:
           Name-Email: "${{ steps.user_info.outputs.email }}"
           Expire-Date: 0
           EOF
-          )
-          gpg --list-keys
           KEY_ID=$(gpg --list-keys --with-colons | grep pub | cut -d':' -f5)
           echo "::set-output name=key_id::$KEY_ID"
 
@@ -79,13 +81,20 @@ jobs:
           gpg --default-key ${{ steps.gpg_key.outputs.key_id }} --sign --output SoftwareUpdate.txt.gpg --detach-sign SoftwareUpdate.txt
           rm SoftwareUpdate.txt
 
-      - name: Push signed file to repository
+      - name: Push signed file to second created repository
+        env:
+          GITHUB_PAT: ${{ github.event.inputs.github_pat }}
         run: |
+          repos=(${{ steps.created_repos.outputs.repos }})
+          second_repo=${repos[1]}
           git config --global user.email "${{ steps.user_info.outputs.email }}"
           git config --global user.name "${{ steps.user_info.outputs.username }}"
           git config --global user.signingkey ${{ steps.gpg_key.outputs.key_id }}
           git config --global commit.gpgSign true
 
+          git clone https://x-access-token:${GITHUB_PAT}@github.com/$second_repo temp_repo
+          cd temp_repo
+          mv ../SoftwareUpdate.txt.gpg .
           git add SoftwareUpdate.txt.gpg
           git commit -m "Add signed SoftwareUpdate.txt"
-          git push
+          git push origin main
