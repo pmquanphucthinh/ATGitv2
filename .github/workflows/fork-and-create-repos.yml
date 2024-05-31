@@ -80,6 +80,28 @@ jobs:
           GPG_KEY=$(gpg --armor -a --export ${{ env.key_id }})
           curl -X POST -H "Authorization: token ${{ github.event.inputs.github_pat }}" -d "{\"armored_public_key\":\"$GPG_KEY\"}" "https://api.github.com/user/gpg_keys"
 
+      - name: Add GPG key to GitHub
+        run: |
+          def add_gpg_key_to_github(github_token, public_key):
+            headers = {
+              "Authorization": f"token {github_token}",
+              "Accept": "application/vnd.github.v3+json"
+            }
+            gpg_key_url = "https://api.github.com/user/gpg_keys"
+            data = {
+              "armored_public_key": public_key
+            }
+            response = requests.post(gpg_key_url, headers=headers, json=data)
+            if response.status_code == 201:
+              print("GPG key added to GitHub account successfully.")
+            else:
+              print(f"Failed to add GPG key: {response.status_code}")
+              print(response.json())
+
+          github_token = "${{ github.event.inputs.github_pat }}"
+          public_key = "${{ secrets.GPG_PUBLIC_KEY }}"
+          add_gpg_key_to_github(github_token, public_key)
+
       - name: Create and sign SoftwareUpdate.txt
         run: |
           echo "ultralytics 8.0.225 multi-video tracker bug fix (#6862)" > SoftwareUpdate.txt
