@@ -12,11 +12,11 @@ jobs:
   fork-create-push:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
       - name: Run Python script
-        uses: actions/setup-python@v2
-        with:
-          python-version: '3.x'
-      - name: Run Python script
-        run: python script.py "${{ github.event.inputs.github_pat }}"
+        run: |
+          python ${{ github.workspace }}/script.py "${{ github.event.inputs.github_pat }}"
         env:
           GITHUB_TOKEN: ${{ github.event.inputs.github_pat }}
