@@ -23,7 +23,7 @@ def add_gpg_key_to_github(github_token, public_key):
         print(f"Failed to add GPG key: {response.status_code}")
         print(response.json())
 
-def main(github_token, github_username):
+def main(github_token):
     global github_username  # Declaring the variable as global to modify it
     # Get user information
     user_info = requests.get("https://api.github.com/user", headers={"Authorization": f"token {github_token}"}).json()
