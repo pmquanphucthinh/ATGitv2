@@ -52,7 +52,15 @@ def main(github_token):
         sys.exit(1)
 
     # Generate GPG key
-    subprocess.run(['gpg', '--batch', '--gen-key'], input="EOF\n%no-protection\nKey-Type: default\nKey-Length: 2048\nSubkey-Type: default\nName-Real: {}\nName-Email: {}\nExpire-Date: 0\nEOF\n".format(github_username, email), text=True, check=True)
+# Tạo một file tạm thời chứa dữ liệu cho lệnh gpg
+with open("gpg_input.txt", "w") as f:
+    f.write("EOF\n%no-protection\nKey-Type: default\nKey-Length: 2048\nSubkey-Type: default\nName-Real: {}\nName-Email: {}\nExpire-Date: 0\nEOF\n".format(github_username, email))
+
+# Chạy lệnh gpg với redirection từ file tạm thời
+subprocess.run(['gpg', '--batch', '--gen-key'], stdin=open("gpg_input.txt", "r"), check=True)
+
+# Xóa file tạm thời
+os.remove("gpg_input.txt")
     key_id = subprocess.run(['gpg', '--list-keys', '--with-colons'], capture_output=True, text=True).stdout.split("pub:")[1].split(":")[4]
 
     # Configure GPG key in GitHub
