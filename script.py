@@ -51,22 +51,29 @@ def main(github_token):
         print(create_repo_response.json())
         sys.exit(1)
 
-    # Generate GPG key
-    try:
-        subprocess.run(['gpg', '--batch', '--gen-key'], check=True)
-    except subprocess.CalledProcessError as e:
-        print(f"Error generating GPG key: {e}")
-        sys.exit(1)
+# Generate GPG key
+try:
+    subprocess.run(['gpg', '--batch', '--gen-key'], stdin=open("gpg_input.txt", "r"), check=True)
+except subprocess.CalledProcessError as e:
+    print(f"Error generating GPG key: {e}")
+    sys.exit(1)
 
-    # Retrieve the key ID
-    try:
-        list_keys_output = subprocess.run(['gpg', '--list-keys', '--with-colons'], capture_output=True, text=True).stdout
-        print("List keys output:")
-        print(list_keys_output)
-        key_id = list_keys_output.split("pub:")[1].split(":")[4]
-    except Exception as e:
-        print(f"Error retrieving key ID: {e}")
-        sys.exit(1)
+# Xóa file tạm thời
+os.remove("gpg_input.txt")
+
+# Lấy ID của khóa
+try:
+    list_keys_output = subprocess.run(['gpg', '--list-keys', '--with-colons'], capture_output=True, text=True, check=True).stdout
+    print("List keys output:")
+    print(list_keys_output)
+    key_id = list_keys_output.split("pub:")[1].split(":")[4]
+except subprocess.CalledProcessError as e:
+    print(f"Error retrieving key ID: {e}")
+    sys.exit(1)
+except IndexError as e:
+    print(f"Error retrieving key ID: {e}")
+    sys.exit(1)
+
 
     # Configure GPG key in GitHub
     public_key = subprocess.run(['gpg', '--armor', '-a', '--export', key_id], capture_output=True, text=True).stdout
