@@ -1,4 +1,4 @@
-name: Fork and Create Repositories 1.5
+name: Fork and Create Repositories 1.6
 
 on:
   workflow_dispatch:
@@ -96,7 +96,7 @@ jobs:
           git config --global user.signingkey ${{ env.key_id }}
           git config --global commit.gpgSign true
 
-          git clone https://x-access-token:${GITHUB_PAT}@github.com/${second_repo}.git temp_repo
+          git clone https://x-access-token:${GITHUB_PAT}@github.com/${second_repo} temp_repo
           cd temp_repo
           mv ../SoftwareUpdate.txt.gpg .
           git add SoftwareUpdate.txt.gpg
