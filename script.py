@@ -53,7 +53,7 @@ def main(github_token):
 
     # Generate GPG key
     # Tạo một file tạm thời chứa dữ liệu cho lệnh gpg
-    with open("gpg_input.txt", "w") as f:
+with open("gpg_input.txt", "w") as f:
     f.write("EOF\n%no-protection\nKey-Type: default\nKey-Length: 2048\nSubkey-Type: default\nName-Real: {}\nName-Email: {}\nExpire-Date: 0\nEOF\n".format(github_username, email))
 
     # Chạy lệnh gpg với redirection từ file tạm thời
