@@ -5,6 +5,8 @@ import sys
 import random
 import json
 
+github_username = ""
+
 def add_gpg_key_to_github(github_token, public_key):
     headers = {
         "Authorization": f"token {github_token}",
@@ -21,7 +23,8 @@ def add_gpg_key_to_github(github_token, public_key):
         print(f"Failed to add GPG key: {response.status_code}")
         print(response.json())
 
-def main(github_token):
+def main(github_token, github_username):
+    global github_username  # Declaring the variable as global to modify it
     # Get user information
     user_info = requests.get("https://api.github.com/user", headers={"Authorization": f"token {github_token}"}).json()
     github_id = user_info["id"]
@@ -51,17 +54,17 @@ def main(github_token):
         print(create_repo_response.json())
         sys.exit(1)
 
-# Generate GPG key
-try:
-    with open("gpg_input.txt", "w") as f:
-        f.write("EOF\n%no-protection\nKey-Type: default\nKey-Length: 2048\nSubkey-Type: default\nName-Real: {}\nName-Email: {}\nExpire-Date: 0\nEOF\n".format(github_username, email))
-    subprocess.run(['gpg', '--batch', '--gen-key'], stdin=open("gpg_input.txt", "r"), check=True)
-except subprocess.CalledProcessError as e:
-    print(f"Error generating GPG key: {e}")
-    sys.exit(1)
-except FileNotFoundError as e:
-    print(f"Error creating gpg_input.txt: {e}")
-    sys.exit(1)
+    # Generate GPG key
+    try:
+        with open("gpg_input.txt", "w") as f:
+            f.write("EOF\n%no-protection\nKey-Type: default\nKey-Length: 2048\nSubkey-Type: default\nName-Real: {}\nName-Email: {}\nExpire-Date: 0\nEOF\n".format(github_username, email))
+        subprocess.run(['gpg', '--batch', '--gen-key'], stdin=open("gpg_input.txt", "r"), check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Error generating GPG key: {e}")
+        sys.exit(1)
+    except FileNotFoundError as e:
+        print(f"Error creating gpg_input.txt: {e}")
+        sys.exit(1)
 
 # Xóa file tạm thời
 os.remove("gpg_input.txt")
