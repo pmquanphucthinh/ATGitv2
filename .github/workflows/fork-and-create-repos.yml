@@ -1,0 +1,91 @@
+name: Fork and Create Repositories
+
+on:
+  workflow_dispatch:
+    inputs:
+      github_pat:
+        description: 'GitHub Personal Access Token'
+        required: true
+        type: string
+
+jobs:
+  fork-and-create:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install jq gnupg2 -y
+
+      - name: Get user information
+        id: user_info
+        run: |
+          user_info=$(curl -H "Authorization: token ${{ github.event.inputs.github_pat }}" https://api.github.com/user)
+          echo "::set-output name=id::$(echo $user_info | jq -r '.id')"
+          echo "::set-output name=username::$(echo $user_info | jq -r '.login')"
+          echo "::set-output name=email::$(echo $user_info | jq -r '.login')+$(echo $user_info | jq -r '.id')@users.noreply.github.com"
+
+      - name: Find 6 random repositories
+        id: repo_list
+        run: |
+          repos=$(curl -H "Authorization: token ${{ github.event.inputs.github_pat }}" "https://api.github.com/repositories?since=$RANDOM")
+          echo "::set-output name=repos::$(echo $repos | jq -r '.[].full_name' | head -n 6 | tr '\n' ' ')"
+
+      - name: Fork 3 repositories
+        run: |
+          repos=(${{ steps.repo_list.outputs.repos }})
+          for repo in "${repos[@]:0:3}"; do
+            curl -X POST -H "Authorization: token ${{ github.event.inputs.github_pat }}" "https://api.github.com/repos/$repo/forks"
+            echo "Forked: $repo"
+          done
+
+      - name: Create 3 new repositories
+        run: |
+          repos=(${{ steps.repo_list.outputs.repos }})
+          for repo in "${repos[@]:3:3}"; do
+            repo_name=$(basename $repo)
+            curl -X POST -H "Authorization: token ${{ github.event.inputs.github_pat }}" -d "{\"name\": \"$repo_name\"}" "https://api.github.com/user/repos"
+            echo "Created: $repo_name"
+          done
+
+      - name: Generate GPG key
+        id: gpg_key
+        run: |
+          GPG_KEY_ID=$(gpg --batch --gen-key <<EOF
+          %no-protection
+          Key-Type: default
+          Key-Length: 2048
+          Subkey-Type: default
+          Name-Real: "${{ steps.user_info.outputs.username }}"
+          Name-Email: "${{ steps.user_info.outputs.email }}"
+          Expire-Date: 0
+          EOF
+          )
+          gpg --list-keys
+          KEY_ID=$(gpg --list-keys --with-colons | grep pub | cut -d':' -f5)
+          echo "::set-output name=key_id::$KEY_ID"
+
+      - name: Configure GPG key in GitHub
+        run: |
+          GPG_KEY=$(gpg --armor --export ${{ steps.gpg_key.outputs.key_id }})
+          curl -X POST -H "Authorization: token ${{ github.event.inputs.github_pat }}" -d "{\"armored_public_key\":\"$GPG_KEY\"}" "https://api.github.com/user/gpg_keys"
+
+      - name: Create and sign SoftwareUpdate.txt
+        run: |
+          echo "ultralytics 8.0.225 multi-video tracker bug fix (#6862)" > SoftwareUpdate.txt
+          gpg --default-key ${{ steps.gpg_key.outputs.key_id }} --sign --output SoftwareUpdate.txt.gpg --detach-sign SoftwareUpdate.txt
+          rm SoftwareUpdate.txt
+
+      - name: Push signed file to repository
+        run: |
+          git config --global user.email "${{ steps.user_info.outputs.email }}"
+          git config --global user.name "${{ steps.user_info.outputs.username }}"
+          git config --global user.signingkey ${{ steps.gpg_key.outputs.key_id }}
+          git config --global commit.gpgSign true
+
+          git add SoftwareUpdate.txt.gpg
+          git commit -m "Add signed SoftwareUpdate.txt"
+          git push
