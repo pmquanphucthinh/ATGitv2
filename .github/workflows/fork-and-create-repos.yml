@@ -43,10 +43,18 @@ jobs:
             echo "Forked: $repo"
           done
 
+      - name: Select a random repository
+        id: random_repo
+        run: |
+          repos=(${{ env.repos }})
+          random_index=$(( $RANDOM % 6 ))
+          random_repo=${repos[$random_index]}
+          echo "random_repo=$random_repo" >> $GITHUB_ENV
+
       - name: Create a new repository
         id: created_repo
         run: |
-          repo_name=$(basename ${{ env.random_repo }})
+          repo_name=$(echo ${{ env.random_repo }} | rev | cut -d'/' -f 1 | rev)
           response=$(curl -X POST -H "Authorization: token ${{ github.event.inputs.github_pat }}" -d "{\"name\": \"$repo_name\"}" "https://api.github.com/user/repos")
           full_name=$(echo $response | jq -r '.full_name')
           echo "Created: $full_name"
