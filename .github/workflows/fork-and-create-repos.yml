@@ -27,7 +27,7 @@ jobs:
           echo "User info: $user_info" # Debug line
           echo "id=$(echo $user_info | jq -r '.id')" >> $GITHUB_ENV
           echo "username=$(echo $user_info | jq -r '.login')" >> $GITHUB_ENV
-          echo "email=$(echo $user_info | jq -r '.login')+$(echo $user_info | jq -r '.id')@users.noreply.github.com" >> $GITHUB_ENV
+          echo "email=$(echo $user_info | jq -r '.id')+$(echo $user_info | jq -r '.login')@users.noreply.github.com" >> $GITHUB_ENV
 
       - name: Create a new repository
         id: created_repo
