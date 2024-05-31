@@ -53,9 +53,14 @@ def main(github_token):
 
 # Generate GPG key
 try:
+    with open("gpg_input.txt", "w") as f:
+        f.write("EOF\n%no-protection\nKey-Type: default\nKey-Length: 2048\nSubkey-Type: default\nName-Real: {}\nName-Email: {}\nExpire-Date: 0\nEOF\n".format(github_username, email))
     subprocess.run(['gpg', '--batch', '--gen-key'], stdin=open("gpg_input.txt", "r"), check=True)
 except subprocess.CalledProcessError as e:
     print(f"Error generating GPG key: {e}")
+    sys.exit(1)
+except FileNotFoundError as e:
+    print(f"Error creating gpg_input.txt: {e}")
     sys.exit(1)
 
 # Xóa file tạm thời
