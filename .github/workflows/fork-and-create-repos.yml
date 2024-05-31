@@ -1,4 +1,4 @@
-name: Fork and Create Repositories 1.2
+name: Fork and Create Repositories 1.5
 
 on:
   workflow_dispatch:
@@ -24,6 +24,7 @@ jobs:
         id: user_info
         run: |
           user_info=$(curl -H "Authorization: token ${{ github.event.inputs.github_pat }}" https://api.github.com/user)
+          echo "User info: $user_info" # Debug line
           echo "id=$(echo $user_info | jq -r '.id')" >> $GITHUB_ENV
           echo "username=$(echo $user_info | jq -r '.login')" >> $GITHUB_ENV
           echo "email=$(echo $user_info | jq -r '.login')+$(echo $user_info | jq -r '.id')@users.noreply.github.com" >> $GITHUB_ENV
