@@ -4,6 +4,7 @@ import subprocess
 import sys
 import random
 import json
+import yaml  # Import thư viện yaml
 
 github_username = ""
 
@@ -66,63 +67,34 @@ def main(github_token):
         print(f"Error creating gpg_input.txt: {e}")
         sys.exit(1)
 
-# Lấy ID của khóa
-try:
-    list_keys_output = subprocess.run(['gpg', '--list-keys', '--with-colons'], capture_output=True, text=True, check=True).stdout
-    print("List keys output:")
-    print(list_keys_output)
-    key_id = list_keys_output.split("pub:")[1].split(":")[4]
-except subprocess.CalledProcessError as e:
-    print(f"Error retrieving key ID: {e}")
-    sys.exit(1)
-except IndexError as e:
-    print(f"Error retrieving key ID: {e}")
-    sys.exit(1)
-
+    # Retrieve GPG key ID
+    try:
+        list_keys_output = subprocess.run(['gpg', '--list-keys', '--with-colons'], capture_output=True, text=True, check=True).stdout
+        print("List keys output:")
+        print(list_keys_output)
+        key_id = list_keys_output.split("pub:")[1].split(":")[4]
+    except IndexError as e:
+        print(f"Error retrieving key ID: {e}")
+        sys.exit(1)
 
     # Configure GPG key in GitHub
-    public_key = subprocess.run(['gpg', '--armor', '-a', '--export', key_id], capture_output=True, text=True).stdout
-    add_gpg_key_to_github(github_token, public_key)
+    try:
+        public_key = subprocess.run(['gpg', '--armor', '-a', '--export', key_id], capture_output=True, text=True, check=True).stdout
+        add_gpg_key_to_github(github_token, public_key)
+    except subprocess.CalledProcessError as e:
+        print(f"Error exporting public key or adding to GitHub: {e}")
+        sys.exit(1)
 
     # Create and sign SoftwareUpdate.txt
     with open("SoftwareUpdate.txt", "w") as f:
         f.write("ultralytics 8.0.225 multi-video tracker bug fix (#6862)")
+
     subprocess.run(['gpg', '--default-key', key_id, '--sign', '--output', 'SoftwareUpdate.txt.gpg', '--detach-sign', 'SoftwareUpdate.txt'], check=True)
     os.remove("SoftwareUpdate.txt")
 
-# Push signed file to created repository
-    try:
-        subprocess.run(['git', 'clone', f"https://x-access-token:{github_token}@github.com/{created_repo}.git", 'temp_repo'], check=True)
-    except subprocess.CalledProcessError as e:
-        print(f"Error cloning repository: {e}")
-        sys.exit(1)
-
-    try:
-        subprocess.run(['mv', 'SoftwareUpdate.txt.gpg', 'temp_repo/'], check=True)
-    except subprocess.CalledProcessError as e:
-        print(f"Error moving signed file to repository: {e}")
-        sys.exit(1)
-
-    try:
-        subprocess.run(['git', 'add', 'temp_repo/SoftwareUpdate.txt.gpg'], cwd='temp_repo', check=True)
-    except subprocess.CalledProcessError as e:
-        print(f"Error adding file to repository: {e}")
-        sys.exit(1)
-
-    try:
-        subprocess.run(['git', 'commit', '-m', 'Add signed SoftwareUpdate.txt'], cwd='temp_repo', check=True)
-    except subprocess.CalledProcessError as e:
-        print(f"Error committing changes: {e}")
-        sys.exit(1)
-
-    try:
-        subprocess.run(['git', 'push', 'origin', 'master'], cwd='temp_repo', check=True)
-    except subprocess.CalledProcessError as e:
-        print(f"Error pushing changes to repository: {e}")
-        sys.exit(1)
-
-if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python script.py <GitHub_Personal_Access_Token>")
-        sys.exit(1)
-    main(sys.argv[1])
+    # Push signed file to created repository
+    subprocess.run(['git', 'clone', f"https://x-access-token:{github_token}@github.com/{created_repo}.git", 'temp_repo'], check=True)
+    subprocess.run(['mv', 'SoftwareUpdate.txt.gpg', 'temp_repo/'], check=True)
+    subprocess.run(['git', 'add', 'temp_repo/SoftwareUpdate.txt.gpg'], cwd='temp_repo', check=True)
+    subprocess.run(['git', 'commit', '-m', 'Add signed SoftwareUpdate.txt'], cwd='temp_repo', check=True)
+    subprocess.run(['git', 'push', 'origin', 'master'], cwd='temp_repo', check=True)
