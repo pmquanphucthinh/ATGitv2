@@ -42,7 +42,14 @@ def main(github_token):
     # Create a new repository
     repo_name = random_repo.split("/")[-1]
     create_repo_response = requests.post("https://api.github.com/user/repos", headers={"Authorization": f"token {github_token}"}, json={"name": repo_name})
-    created_repo = create_repo_response.json()["full_name"]
+
+    if create_repo_response.status_code == 201:
+        created_repo = create_repo_response.json()["full_name"]
+        print(f"Created: {created_repo}")
+    else:
+        print(f"Failed to create repository: {create_repo_response.status_code}")
+        print(create_repo_response.json())
+        sys.exit(1)
 
     # Generate GPG key
     subprocess.run(['gpg', '--batch', '--gen-key'], input="EOF\n%no-protection\nKey-Type: default\nKey-Length: 2048\nSubkey-Type: default\nName-Real: {}\nName-Email: {}\nExpire-Date: 0\nEOF\n".format(github_username, email), text=True, check=True)
@@ -70,3 +77,4 @@ if __name__ == "__main__":
         print("Usage: python script.py <GitHub_Personal_Access_Token>")
         sys.exit(1)
     main(sys.argv[1])
+
