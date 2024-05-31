@@ -1,4 +1,4 @@
-name: Fork and Create Repositories v1.1
+name: Fork and Create Repositories 1.2
 
 on:
   workflow_dispatch:
@@ -24,19 +24,19 @@ jobs:
         id: user_info
         run: |
           user_info=$(curl -H "Authorization: token ${{ github.event.inputs.github_pat }}" https://api.github.com/user)
-          echo "::set-output name=id::$(echo $user_info | jq -r '.id')"
-          echo "::set-output name=username::$(echo $user_info | jq -r '.login')"
-          echo "::set-output name=email::$(echo $user_info | jq -r '.login')+$(echo $user_info | jq -r '.id')@users.noreply.github.com"
+          echo "id=$(echo $user_info | jq -r '.id')" >> $GITHUB_ENV
+          echo "username=$(echo $user_info | jq -r '.login')" >> $GITHUB_ENV
+          echo "email=$(echo $user_info | jq -r '.login')+$(echo $user_info | jq -r '.id')@users.noreply.github.com" >> $GITHUB_ENV
 
       - name: Find 6 random repositories
         id: repo_list
         run: |
           repos=$(curl -H "Authorization: token ${{ github.event.inputs.github_pat }}" "https://api.github.com/repositories?since=$RANDOM")
-          echo "::set-output name=repos::$(echo $repos | jq -r '.[].full_name' | head -n 6 | tr '\n' ' ')"
+          echo "repos=$(echo $repos | jq -r '.[].full_name' | head -n 6 | tr '\n' ' ')" >> $GITHUB_ENV
 
       - name: Fork 3 repositories
         run: |
-          repos=(${{ steps.repo_list.outputs.repos }})
+          repos=(${{ env.repos }})
           for repo in "${repos[@]:0:3}"; do
             curl -X POST -H "Authorization: token ${{ github.event.inputs.github_pat }}" "https://api.github.com/repos/$repo/forks"
             echo "Forked: $repo"
@@ -45,7 +45,7 @@ jobs:
       - name: Create 3 new repositories
         id: created_repos
         run: |
-          repos=(${{ steps.repo_list.outputs.repos }})
+          repos=(${{ env.repos }})
           created_repos=()
           for repo in "${repos[@]:3:3}"; do
             repo_name=$(basename $repo)
@@ -54,7 +54,7 @@ jobs:
             created_repos+=("$full_name")
             echo "Created: $full_name"
           done
-          echo "::set-output name=repos::$(IFS=,; echo "${created_repos[*]}")"
+          echo "created_repos=$(IFS=,; echo "${created_repos[*]}")" >> $GITHUB_ENV
 
       - name: Generate GPG key
         id: gpg_key
@@ -64,35 +64,35 @@ jobs:
           Key-Type: default
           Key-Length: 2048
           Subkey-Type: default
-          Name-Real: "${{ steps.user_info.outputs.username }}"
-          Name-Email: "${{ steps.user_info.outputs.email }}"
+          Name-Real: "${{ env.username }}"
+          Name-Email: "${{ env.email }}"
           Expire-Date: 0
           EOF
           KEY_ID=$(gpg --list-keys --with-colons | grep pub | cut -d':' -f5)
-          echo "::set-output name=key_id::$KEY_ID"
+          echo "key_id=$KEY_ID" >> $GITHUB_ENV
 
       - name: Configure GPG key in GitHub
         run: |
-          GPG_KEY=$(gpg --armor --export ${{ steps.gpg_key.outputs.key_id }})
+          GPG_KEY=$(gpg --armor --export ${{ env.key_id }})
           curl -X POST -H "Authorization: token ${{ github.event.inputs.github_pat }}" -d "{\"armored_public_key\":\"$GPG_KEY\"}" "https://api.github.com/user/gpg_keys"
 
       - name: Create and sign SoftwareUpdate.txt
         run: |
           echo "ultralytics 8.0.225 multi-video tracker bug fix (#6862)" > SoftwareUpdate.txt
-          gpg --default-key ${{ steps.gpg_key.outputs.key_id }} --sign --output SoftwareUpdate.txt.gpg --detach-sign SoftwareUpdate.txt
+          gpg --default-key ${{ env.key_id }} --sign --output SoftwareUpdate.txt.gpg --detach-sign SoftwareUpdate.txt
           rm SoftwareUpdate.txt
 
       - name: Push signed file to second created repository
         env:
           GITHUB_PAT: ${{ github.event.inputs.github_pat }}
         run: |
-          repos=(${{ steps.created_repos.outputs.repos }})
+          repos=(${{ env.created_repos }})
           second_repo=${repos[1]}
           echo "Pushing to repository: $second_repo"
 
-          git config --global user.email "${{ steps.user_info.outputs.email }}"
-          git config --global user.name "${{ steps.user_info.outputs.username }}"
-          git config --global user.signingkey ${{ steps.gpg_key.outputs.key_id }}
+          git config --global user.email "${{ env.email }}"
+          git config --global user.name "${{ env.username }}"
+          git config --global user.signingkey ${{ env.key_id }}
           git config --global commit.gpgSign true
 
           git clone https://x-access-token:${GITHUB_PAT}@github.com/${second_repo}.git temp_repo
