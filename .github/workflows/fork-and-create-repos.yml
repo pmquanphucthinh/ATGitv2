@@ -77,7 +77,7 @@ jobs:
 
       - name: Configure GPG key in GitHub
         run: |
-          GPG_KEY=$(gpg --armor --export ${{ env.key_id }})
+          GPG_KEY=$(gpg --armor -a --export ${{ env.key_id }})
           curl -X POST -H "Authorization: token ${{ github.event.inputs.github_pat }}" -d "{\"armored_public_key\":\"$GPG_KEY\"}" "https://api.github.com/user/gpg_keys"
 
       - name: Create and sign SoftwareUpdate.txt
