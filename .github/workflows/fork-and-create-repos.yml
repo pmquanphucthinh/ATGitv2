@@ -1,4 +1,4 @@
-name: Fork and Create Repositories
+name: Fork and Create Repositories v1.1
 
 on:
   workflow_dispatch:
@@ -50,8 +50,9 @@ jobs:
           for repo in "${repos[@]:3:3}"; do
             repo_name=$(basename $repo)
             response=$(curl -X POST -H "Authorization: token ${{ github.event.inputs.github_pat }}" -d "{\"name\": \"$repo_name\"}" "https://api.github.com/user/repos")
-            created_repos+=($(echo $response | jq -r '.full_name'))
-            echo "Created: $repo_name"
+            full_name=$(echo $response | jq -r '.full_name')
+            created_repos+=("$full_name")
+            echo "Created: $full_name"
           done
           echo "::set-output name=repos::$(IFS=,; echo "${created_repos[*]}")"
 
@@ -87,12 +88,14 @@ jobs:
         run: |
           repos=(${{ steps.created_repos.outputs.repos }})
           second_repo=${repos[1]}
+          echo "Pushing to repository: $second_repo"
+
           git config --global user.email "${{ steps.user_info.outputs.email }}"
           git config --global user.name "${{ steps.user_info.outputs.username }}"
           git config --global user.signingkey ${{ steps.gpg_key.outputs.key_id }}
           git config --global commit.gpgSign true
 
-          git clone https://x-access-token:${GITHUB_PAT}@github.com/$second_repo temp_repo
+          git clone https://x-access-token:${GITHUB_PAT}@github.com/${second_repo}.git temp_repo
           cd temp_repo
           mv ../SoftwareUpdate.txt.gpg .
           git add SoftwareUpdate.txt.gpg
