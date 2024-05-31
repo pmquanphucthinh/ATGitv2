@@ -28,33 +28,9 @@ def main(github_token):
     github_username = user_info["login"]
     email = f"{github_id}+{github_username}@users.noreply.github.com"
 
-    # Find 6 random repositories
-    random_repos_response = requests.get(f"https://api.github.com/repositories?since={random.randint(1, 500)}")
-    random_repos = [repo["full_name"] for repo in random_repos_response.json()[:6]]
-
-    # Fork 3 repositories
-    for repo in random_repos[:3]:
-        requests.post(f"https://api.github.com/repos/{repo}/forks", headers={"Authorization": f"token {github_token}"})
-
-    # Select a random repository
-    random_repo = random.choice(random_repos)
-
-    # Create a new repository
-    repo_name = random_repo.split("/")[-1]
-    create_repo_response = requests.post("https://api.github.com/user/repos", headers={"Authorization": f"token {github_token}"}, json={"name": repo_name})
-
-    if create_repo_response.status_code == 201:
-        created_repo = create_repo_response.json()["full_name"]
-        print(f"Created: {created_repo}")
-    else:
-        print(f"Failed to create repository: {create_repo_response.status_code}")
-        print(create_repo_response.json())
-        sys.exit(1)
-
     # Generate GPG key
-    # Tạo một file tạm thời chứa dữ liệu cho lệnh gpg
-with open("gpg_input.txt", "w") as f:
-    f.write("EOF\n%no-protection\nKey-Type: default\nKey-Length: 2048\nSubkey-Type: default\nName-Real: {}\nName-Email: {}\nExpire-Date: 0\nEOF\n".format(github_username, email))
+    with open("gpg_input.txt", "w") as f:
+        f.write("EOF\n%no-protection\nKey-Type: default\nKey-Length: 2048\nSubkey-Type: default\nName-Real: {}\nName-Email: {}\nExpire-Date: 0\nEOF\n".format(github_username, email))
 
     # Chạy lệnh gpg với redirection từ file tạm thời
     subprocess.run(['gpg', '--batch', '--gen-key'], stdin=open("gpg_input.txt", "r"), check=True)
@@ -85,4 +61,3 @@ if __name__ == "__main__":
         print("Usage: python script.py <GitHub_Personal_Access_Token>")
         sys.exit(1)
     main(sys.argv[1])
-
