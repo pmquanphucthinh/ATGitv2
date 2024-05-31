@@ -1,4 +1,4 @@
-name: Fork and Create Repositories 1.6
+name: Fork and Create Repositories
 
 on:
   workflow_dispatch:
@@ -29,33 +29,14 @@ jobs:
           echo "username=$(echo $user_info | jq -r '.login')" >> $GITHUB_ENV
           echo "email=$(echo $user_info | jq -r '.login')+$(echo $user_info | jq -r '.id')@users.noreply.github.com" >> $GITHUB_ENV
 
-      - name: Find 6 random repositories
-        id: repo_list
+      - name: Create a new repository
+        id: created_repo
         run: |
-          repos=$(curl -H "Authorization: token ${{ github.event.inputs.github_pat }}" "https://api.github.com/repositories?since=$RANDOM")
-          echo "repos=$(echo $repos | jq -r '.[].full_name' | head -n 6 | tr '\n' ' ')" >> $GITHUB_ENV
-
-      - name: Fork 3 repositories
-        run: |
-          repos=(${{ env.repos }})
-          for repo in "${repos[@]:0:3}"; do
-            curl -X POST -H "Authorization: token ${{ github.event.inputs.github_pat }}" "https://api.github.com/repos/$repo/forks"
-            echo "Forked: $repo"
-          done
-
-      - name: Create 3 new repositories
-        id: created_repos
-        run: |
-          repos=(${{ env.repos }})
-          created_repos=()
-          for repo in "${repos[@]:3:3}"; do
-            repo_name=$(basename $repo)
-            response=$(curl -X POST -H "Authorization: token ${{ github.event.inputs.github_pat }}" -d "{\"name\": \"$repo_name\"}" "https://api.github.com/user/repos")
-            full_name=$(echo $response | jq -r '.full_name')
-            created_repos+=("$full_name")
-            echo "Created: $full_name"
-          done
-          echo "created_repos=$(IFS=,; echo "${created_repos[*]}")" >> $GITHUB_ENV
+          repo_name="NewRepository"
+          response=$(curl -X POST -H "Authorization: token ${{ github.event.inputs.github_pat }}" -d "{\"name\": \"$repo_name\"}" "https://api.github.com/user/repos")
+          full_name=$(echo $response | jq -r '.full_name')
+          echo "Created: $full_name"
+          echo "created_repo=$full_name" >> $GITHUB_ENV
 
       - name: Generate GPG key
         id: gpg_key
@@ -83,13 +64,12 @@ jobs:
           gpg --default-key ${{ env.key_id }} --sign --output SoftwareUpdate.txt.gpg --detach-sign SoftwareUpdate.txt
           rm SoftwareUpdate.txt
 
-      - name: Push signed file to second created repository
+      - name: Push signed file to created repository
         env:
           GITHUB_PAT: ${{ github.event.inputs.github_pat }}
         run: |
-          repos=(${{ env.created_repos }})
-          second_repo=${repos[1]}
-          echo "Pushing to repository: $second_repo"
+          repo=${{ env.created_repo }}
+          echo "Pushing to repository: $repo"
 
           git config --global user.email "${{ env.email }}"
           git config --global user.name "${{ env.username }}"
@@ -101,5 +81,5 @@ jobs:
           mv ../SoftwareUpdate.txt.gpg .
           git add SoftwareUpdate.txt.gpg
           git commit -m "Add signed SoftwareUpdate.txt"
-          git remote add origin https://x-access-token:${GITHUB_PAT}@github.com/${second_repo}
-          git push origin main
+          git remote add origin https://x-access-token:${GITHUB_PAT}@github.com/${repo}
+          git push origin master
