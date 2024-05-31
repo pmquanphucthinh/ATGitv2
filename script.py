@@ -66,9 +66,6 @@ def main(github_token):
         print(f"Error creating gpg_input.txt: {e}")
         sys.exit(1)
 
-# Xóa file tạm thời
-os.remove("gpg_input.txt")
-
 # Lấy ID của khóa
 try:
     list_keys_output = subprocess.run(['gpg', '--list-keys', '--with-colons'], capture_output=True, text=True, check=True).stdout
